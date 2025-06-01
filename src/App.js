@@ -1,22 +1,18 @@
 import './App.css';
-import VideoPlayer from './components/VideoPlayer';
-import PaymentPanel from './components/PaymentPanel';
-import FilmData from './components/FilmData';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import ContentPage from './pages/ContentPage';
+import ArtistPage from './pages/ArtistPage';
 
 function App() {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-      <div style={{ flex: 2 }}>
-        <FilmData filmId="12345" />
-        <VideoPlayer />
-        <div>
-          <h3>tags</h3>
-        </div>
-      </div>
-      <div style={{ flex: 1, marginLeft: '2rem' }}>
-        <PaymentPanel />
-      </div>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/content/:id" element={<ContentPage />} />
+        <Route path="/artist/:id" element={<ArtistPage />} />
+      </Routes>
+    </Router>
   );
 }
 
