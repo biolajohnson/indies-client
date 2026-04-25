@@ -1,7 +1,9 @@
+import { BASE_URL } from '../../services/api';
+
 function VideoPlayer() {
   return (
-    <video width="1500" controls>
-      <source src="http://127.0.0.1:5000/api/video/stream" type="video/mp4" />
+    <video width="100%" controls style={{ borderRadius: '8px' }}>
+      <source src={`${BASE_URL}/api/video/stream`} type="video/mp4" />
       Your browser does not support the video tag.
     </video>
   );
