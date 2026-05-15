@@ -1,21 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import MaintenanceModal from '../components/MaintenanceModal';
 
 const Home = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setError(null);
     api.getCampaigns({ status: 'active' })
       .then(setCampaigns)
       .catch((err) => setError(err.message));
-  }, []);
+  };
 
-  if (error) return <div>Error: {error}</div>;
+  useEffect(() => { load(); }, []);
 
   return (
     <div style={{ padding: '2rem' }}>
+      {error && <MaintenanceModal onRetry={load} />}
       <h1>Indie Film Campaigns</h1>
       {campaigns.length === 0 && <p>Loading campaigns...</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
