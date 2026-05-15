@@ -1,13 +1,70 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api } from '../services/api';
+import { api, BASE_URL } from '../services/api';
 import VideoPlayer from '../components/MediaPlayer/VideoPlayer';
 import PaymentPanel from '../components/Payments/PaymentPanel';
+import { useAuth } from '../context/AuthContext';
 
 const ContentPage = () => {
   const { id } = useParams();
+  const { filmmaker, token } = useAuth();
   const [campaign, setCampaign] = useState(null);
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const pollRef = useRef(null);
+
+  const isOwner = filmmaker && campaign && filmmaker.id === campaign.filmmaker_id;
+
+  const startPolling = (campaignId) => {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/campaigns/${campaignId}/video/status`);
+        const data = await res.json();
+        if (data.status !== 'processing') {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setCampaign((prev) => ({
+            ...prev,
+            video_url: data.video_url,
+            video_status: data.status,
+          }));
+        }
+      } catch (_) {}
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  useEffect(() => {
+    if (campaign?.video_status === 'processing') startPolling(campaign.id);
+  }, [campaign?.video_status]);
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      const res = await fetch(`${BASE_URL}/api/campaigns/${id}/video`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setCampaign((prev) => ({ ...prev, video_url: null, video_status: data.status }));
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     api.getCampaign(id)
@@ -28,10 +85,27 @@ const ContentPage = () => {
           {campaign.genre && ` · ${campaign.genre}`}
         </p>
 
-        {campaign.video_url ? (
-          <video width="100%" controls style={{ borderRadius: '8px' }}>
-            <source src={campaign.video_url} type="video/mp4" />
-          </video>
+        {campaign.video_status === 'processing' ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', aspectRatio: '16/9', background: '#f5f5f5', borderRadius: '8px', flexDirection: 'column', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>⏳</span>
+            <span style={{ color: '#888' }}>Transcoding video — this takes a minute…</span>
+          </div>
+        ) : campaign.video_status === 'flagged' ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', aspectRatio: '16/9', background: '#fff3f3', borderRadius: '8px', flexDirection: 'column', gap: '0.75rem', border: '1px solid #f5c6c6' }}>
+            <span style={{ fontSize: '1.5rem' }}>🚫</span>
+            <span style={{ color: '#c0392b' }}>This video was flagged for review and is not yet public.</span>
+          </div>
+        ) : campaign.video_url ? (
+          <VideoPlayer src={campaign.video_url} />
+        ) : isOwner ? (
+          <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', aspectRatio: '16/9', border: '2px dashed #ccc', borderRadius: '8px', cursor: uploading ? 'not-allowed' : 'pointer', background: '#fafafa', gap: '0.75rem' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#aaa" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <span style={{ fontSize: '1rem', color: '#888' }}>{uploading ? 'Uploading…' : 'Upload video'}</span>
+            {uploadError && <span style={{ fontSize: '0.8rem', color: 'red' }}>{uploadError}</span>}
+            <input type="file" accept="video/*" style={{ display: 'none' }} onChange={handleVideoUpload} disabled={uploading} />
+          </label>
         ) : (
           <VideoPlayer />
         )}

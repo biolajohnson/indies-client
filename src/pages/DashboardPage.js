@@ -96,6 +96,113 @@ function StripeConnectPanel({ filmmaker, token, onStatusChange }) {
   );
 }
 
+function CreateCampaignForm({ token, onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    title: '',
+    short_description: '',
+    description: '',
+    goal_amount: '',
+    genre: '',
+    deadline: '',
+  });
+
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`${BASE_URL}/api/campaigns/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...form,
+          goal_amount: parseFloat(form.goal_amount),
+          deadline: form.deadline || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create campaign');
+      setOpen(false);
+      setForm({ title: '', short_description: '', description: '', goal_amount: '', genre: '', deadline: '' });
+      onCreated(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle = { width: '100%', padding: '0.5rem', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.95rem' };
+  const labelStyle = { display: 'block', fontSize: '0.85rem', marginBottom: '0.25rem', fontWeight: 500 };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ padding: '0.6rem 1.2rem', background: '#222', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9rem', cursor: 'pointer', marginBottom: '1rem' }}
+      >
+        + New Campaign
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+      <h3 style={{ margin: '0 0 1.25rem' }}>New Campaign</h3>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Title *</label>
+            <input required style={inputStyle} value={form.title} onChange={set('title')} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Short description</label>
+            <input style={inputStyle} value={form.short_description} onChange={set('short_description')} />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Full description *</label>
+            <textarea required rows={4} style={inputStyle} value={form.description} onChange={set('description')} />
+          </div>
+          <div>
+            <label style={labelStyle}>Goal amount ($) *</label>
+            <input required type="number" min="1" style={inputStyle} value={form.goal_amount} onChange={set('goal_amount')} />
+          </div>
+          <div>
+            <label style={labelStyle}>Genre</label>
+            <input style={inputStyle} value={form.genre} onChange={set('genre')} placeholder="e.g. drama, sci-fi" />
+          </div>
+          <div>
+            <label style={labelStyle}>Deadline</label>
+            <input type="date" style={inputStyle} value={form.deadline} onChange={set('deadline')} />
+          </div>
+        </div>
+        {error && <p style={{ color: 'red', fontSize: '0.85rem', marginBottom: '0.75rem' }}>{error}</p>}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            type="submit"
+            disabled={saving}
+            style={{ padding: '0.6rem 1.2rem', background: saving ? '#aaa' : '#222', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9rem', cursor: saving ? 'not-allowed' : 'pointer' }}
+          >
+            {saving ? 'Creating…' : 'Create Campaign'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            style={{ padding: '0.6rem 1.2rem', background: 'transparent', border: '1px solid #888', borderRadius: '6px', fontSize: '0.9rem', cursor: 'pointer', color: '#333' }}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { filmmaker: initialFilmmaker, token, logout } = useAuth();
   const [filmmaker, setFilmmaker] = useState(initialFilmmaker);
@@ -132,12 +239,6 @@ export default function DashboardPage() {
           <h1 style={{ margin: 0 }}>Dashboard</h1>
           <p style={{ margin: '0.25rem 0 0', color: '#777' }}>Welcome back, {filmmaker.name}</p>
         </div>
-        <button
-          onClick={logout}
-          style={{ padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}
-        >
-          Log out
-        </button>
       </div>
 
       <StripeConnectPanel filmmaker={filmmaker} token={token} onStatusChange={refreshFilmmaker} />
@@ -160,6 +261,7 @@ export default function DashboardPage() {
       </div>
 
       <h2 style={{ marginBottom: '1rem' }}>Your Campaigns</h2>
+      <CreateCampaignForm token={token} onCreated={(c) => setCampaigns((prev) => [c, ...prev])} />
       {loadingCampaigns && <p style={{ color: '#777' }}>Loading…</p>}
       {!loadingCampaigns && campaigns.length === 0 && (
         <p style={{ color: '#777' }}>You don't have any campaigns yet.</p>
