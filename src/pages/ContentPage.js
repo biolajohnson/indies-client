@@ -41,7 +41,8 @@ const ContentPage = () => {
 
   useEffect(() => {
     if (campaign?.video_status === 'processing') startPolling(campaign.id);
-  }, [campaign?.video_status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign?.video_status, campaign?.id]);
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files[0];

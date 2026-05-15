@@ -204,7 +204,7 @@ function CreateCampaignForm({ token, onCreated }) {
 }
 
 export default function DashboardPage() {
-  const { filmmaker: initialFilmmaker, token, logout } = useAuth();
+  const { filmmaker: initialFilmmaker, token } = useAuth();
   const [filmmaker, setFilmmaker] = useState(initialFilmmaker);
   const [campaigns, setCampaigns] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
